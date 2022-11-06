@@ -8,34 +8,43 @@ puts "Will you need an umbrella today?".center(line_width)
 puts "="*line_width
 puts
 puts "Where are you?"
-user_location = gets.chomp
-# user_location = "Saint Paul"
+# user_location = gets.chomp
+user_location = "The White house"
 puts "Checking the weather at #{user_location}...."
 
 # Get the lat/lng of location from Google Maps API
 
-gmaps_key = "AIzaSyAgRzRHJZf-uoevSnYDTf08or8QFS_fb3U"
 
-gmaps_url = "https://maps.googleapis.com/maps/api/geocode/json?address=#{user_location}&key=#{gmaps_key}"
+require "./gmaps_wrapper.rb"
 
-# p "Getting coordinates from:"
-# p gmaps_url
+x = GmapsWrapper.address_to_coords(user_location)
 
-raw_gmaps_data = URI.open(gmaps_url).read
+p x
 
-parsed_gmaps_data = JSON.parse(raw_gmaps_data)
+latitude = x.fetch("lat")
 
-results_array = parsed_gmaps_data.fetch("results")
+longitude = x.fetch("lng")
 
-first_result_hash = results_array.at(0)
+# gmaps_key = "AIzaSyAgRzRHJZf-uoevSnYDTf08or8QFS_fb3U"
 
-geometry_hash = first_result_hash.fetch("geometry")
+# gmaps_url = "https://maps.googleapis.com/maps/api/geocode/json?address=#{user_location}&key=#{gmaps_key}"
 
-location_hash = geometry_hash.fetch("location")
+# # p "Getting coordinates from:"
+# # p gmaps_url
 
-latitude = location_hash.fetch("lat")
+# raw_gmaps_data = URI.open(gmaps_url).read
 
-longitude = location_hash.fetch("lng")
+# parsed_gmaps_data = JSON.parse(raw_gmaps_data)
+
+# results_array = parsed_gmaps_data.fetch("results")
+
+# first_result_hash = results_array.at(0)
+
+# geometry_hash = first_result_hash.fetch("geometry")
+
+# location_hash = geometry_hash.fetch("location")
+
+
 
 puts "Your coordinates are #{latitude}, #{longitude}."
 
@@ -94,8 +103,49 @@ next_twelve_hours.each do |hour_hash|
   end
 end
 
+# TWILIO 
+require "twilio-ruby"
+
+twilio_sid = ENV.fetch("TWILIO_ACCOUNT_SID", false)
+
+twilio_token = ENV.fetch("TWILIO_TOKEN", false)
+
+twilio_client = Twilio::REST::Client.new(twilio_sid, twilio_token)
+
+# MAILGUN
+
+require "mailgun-ruby"
+
+mg_api_key = ENV.fetch("MAILGUN_API_KEY")
+mg_sending_domain = ENV.fetch("MAILGUN_SENDING_DOMAIN")
+
+mg_client = Mailgun::Client.new(mg_api_key)
+
 if any_precipitation == true
   puts "You might want to take an umbrella!"
+
+    # SENDS TEXT
+  sms_info = {
+    :from => ENV.fetch("TWILIO_SENDING_PHONE_NUMBER"),
+    :to => ENV.fetch("TWILIO_SEND_TO_PHONE_NUMBER"),
+    :body => "It's going to rain today - take an umbrella!"
+  }
+
+  twilio_client.api.account.messages.create(sms_info)
+
+  # SENDS EMAIL
+  email_info = {
+    :from => ENV.fetch("SEND_FROM_EMAIL"),
+    :to => ENV.fetch("SEND_TO_EMAIL"),
+    :subject => "Take an umbrella today!",
+    :text => "It's going to rain today, take an umbrella"
+  }
+
+  mg_client.send_message(mg_sending_domain, email_info)
+
+  # DOWNLOADED TWILIO AND MAILGUN THROUGH
+  # gem install twilio(mailgun)-ruby
+
 else
   puts "You probably won't need an umbrella."
 end
